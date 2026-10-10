@@ -8,7 +8,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 120
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           submodules: recursive
@@ -17,33 +17,21 @@ jobs:
           brew install xcodegen
           rustup toolchain install 1.98.1
           rustup target add aarch64-apple-ios --toolchain 1.98.1
-      - name: Inspect project
+      - name: Inspect Muguet build instructions
         run: |
-          pwd
+          echo "===== Repository files ====="
           ls -la
-          find . -maxdepth 3 -name 'make-ios.sh' -o -name 'Cargo.toml'
-      - name: Check build script
-        run: |
-          chmod +x make-ios.sh
-          sed -n '1,240p' make-ios.sh
-      - name: Build IPA
-        env:
-          FREE: "1"
-          BUNDLE_ID: com.salmanixy.muguet
-        run: |
-          set -euxo pipefail
-          ./make-ios.sh --help || true
-      - name: Find generated IPA
+          echo "===== Build script ====="
+          sed -n '1,280p' make-ios.sh
+          echo "===== README build instructions ====="
+          grep -n -i -A 8 -B 4 "make-ios\|game.zip\|--ipa" README.md || true
+      - name: Upload diagnostic logs
         if: always()
-        run: |
-          find . -type f -name '*.ipa' -print
-          find build -maxdepth 4 -type f -print 2>/dev/null || true
-      - name: Upload IPA
-        if: success()
         uses: actions/upload-artifact@v6
         with:
-          name: Muguet-IPA
+          name: Muguet-Build-Diagnostics
           path: |
-            **/*.ipa
-          if-no-files-found: error
+            make-ios.sh
+            README.md
+          if-no-files-found: warn
           retention-days: 7
