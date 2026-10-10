@@ -6,38 +6,34 @@ permissions:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 360
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Rust
+      - name: Install dependencies
         run: |
+          brew install xcodegen
           rustup toolchain install 1.98.1
           rustup target add aarch64-apple-ios --toolchain 1.98.1
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Check build requirements
+      - name: Inspect build script
         run: |
-          xcodebuild -version
-          rustup toolchain list
-          xcodegen --version
+          ls -la
+          sed -n '1,240p' make-ios.sh
       - name: Build IPA
         env:
           FREE: "1"
           BUNDLE_ID: com.salmanixy.muguet
         run: |
-          chmod +x make-ios.sh
-          ./make-ios.sh --help || true
-          echo "Inspecting the build script for required game assets."
-          sed -n '1,240p' make-ios.sh
-      - name: Upload build output
+          echo "The required game ZIP must be supplied before building."
+          echo "See the Inspect build script step for the expected arguments."
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: muguet-build-logs
+          name: muguet-build-output
           path: |
+            *.ipa
             build/
+            dist/
           if-no-files-found: warn
-          retention-days: 7
