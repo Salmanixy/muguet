@@ -1,78 +1,49 @@
-name:BuildMuguetIPA
-
+name: Build Muguet IPA
 on:
-workflow_dispatch:
-inputs:
-bundle_id:
-description:"Yourappbundleidentifier"
-required:true
-default:"com.salmanixy.muguet"
-
+  workflow_dispatch:
 permissions:
-contents:read
-
+  contents: read
 jobs:
-build:
-name:BuildunsignedIPA
-runs-on:macos-26
-timeout-minutes:120
-
-steps:
--name:CheckoutMuguet
-uses:actions/checkout@v5
-with:
-submodules:recursive
-
--name:SelectXcode
-run:|
-xcodebuild-version
-xcode-select-p
-
--name:Installdependencies
-run:|
-brewinstallxcodegen
-rustuptoolchaininstall1.98.1
-rustuptargetaddaarch64-apple-ios--toolchain1.98.1
-
--name:Checkprojectfiles
-run:|
-test-fmake-ios.sh
-test-fCargo.toml
-test-dios
-echo"Muguetsourcefilesfound."
-
--name:Preparegamefiles
-env:
-GAME_ZIP_BASE64:${{secrets.GAME_ZIP_BASE64}}
-run:|
-if[-n"$GAME_ZIP_BASE64"];then
-echo"$GAME_ZIP_BASE64"|base64--decode>game.zip
-echo"GameZIPrestoredfromrepositorysecret."
-else
-echo"NogameZIPsupplied;buildingtheappwithoutembeddedgamecode."
-fi
-
--name:BuildIPA
-env:
-FREE:"1"
-BUNDLE_ID:${{inputs.bundle_id}}
-run:|
-chmod+xmake-ios.sh
-
-if[-fgame.zip];then
-./make-ios.shgame.zip--ipa
-else
-./make-ios.sh--ipa
-fi
-
-test-sbuild/Muguet.ipa
-echo"IPAsuccessfullycreated."
-ls-lhbuild/Muguet.ipa
-
--name:UploadIPA
-uses:actions/upload-artifact@v6
-with:
-name:Muguet-IPA
-path:build/Muguet.ipa
-if-no-files-found:error
-retention-days:7
+  build:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          brew install xcodegen
+          rustup toolchain install 1.98.1
+          rustup target add aarch64-apple-ios --toolchain 1.98.1
+      - name: Inspect project
+        run: |
+          pwd
+          ls -la
+          find . -maxdepth 3 -name 'make-ios.sh' -o -name 'Cargo.toml'
+      - name: Check build script
+        run: |
+          chmod +x make-ios.sh
+          sed -n '1,240p' make-ios.sh
+      - name: Build IPA
+        env:
+          FREE: "1"
+          BUNDLE_ID: com.salmanixy.muguet
+        run: |
+          set -euxo pipefail
+          ./make-ios.sh --help || true
+      - name: Find generated IPA
+        if: always()
+        run: |
+          find . -type f -name '*.ipa' -print
+          find build -maxdepth 4 -type f -print 2>/dev/null || true
+      - name: Upload IPA
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Muguet-IPA
+          path: |
+            **/*.ipa
+          if-no-files-found: error
+          retention-days: 7
